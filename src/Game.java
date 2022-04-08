@@ -1,9 +1,10 @@
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.*;
 
@@ -29,18 +30,23 @@ public class Game extends JPanel implements Runnable, KeyListener {
     public static String scoreOneString;
     public static String scoreTwoString;
 
+    private String name;
+
     protected Player playerOne;
     protected Player playerTwo;
     protected Ball ball;
     protected static int ballSpeed;
     public static boolean startDirection;
 
+    Map<Boolean, Boolean> cache = new ConcurrentHashMap<>();
+
     // BOOLEANS THAT WILL BE USED FOR SMOOTHER MOVEMENT
     private boolean right = false, left = false, up = false, down = false, space = false;
     private boolean rightTwo = false, leftTwo = false, upTwo = false, downTwo = false;
 
-    public Game() {
+    public Game(String name) {
         playerOne = new Player(0, 360, 15, 200, ID.PLAYER_ONE);
+        this.name = name;
         playerTwo = new Player(GAME_WIDTH - 21, 360, 15, 200, ID.PLAYER_TWO);
         ball = new Ball(0, 0, 50, 50, ID.BALL);
     }
@@ -115,10 +121,10 @@ public class Game extends JPanel implements Runnable, KeyListener {
 
             // Y DIRECTION MOVEMENT PLAYER TWO
             if (downTwo)
+                playerTwo.ySpeed = -1;
+            else if (upTwo)
                 playerTwo.ySpeed = 1;
 
-            if (upTwo)
-                playerTwo.ySpeed = -1;
 
             // if (ball.isColliding(playerOne))
             //     playerTwo.ySpeed = 1;
@@ -143,8 +149,69 @@ public class Game extends JPanel implements Runnable, KeyListener {
             playerOne.update();
             playerTwo.update();
             ball.update();
-            scoreOneString = "Player One: " + scoreOne;
+            scoreOneString = "Player "  + this.name + ": " + scoreOne;
             scoreTwoString = "Player Two: " + scoreTwo;
+
+            // cache.computeIfAbsent(scoreOne == 2, x -> {
+            //     System.exit(0);
+            //     return true;
+            // });
+
+            if (scoreOne == 11 && scoreOne > scoreTwo) {
+
+                Connection connection = null;
+                try {
+                    connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
+                    //testen ob name schon in der Datenbank erhalten ist
+                    Statement statement1 = connection.createStatement();
+                    ResultSet resultset = statement1.executeQuery("SELECT player from scoreboard");
+                    Statement statement = connection.createStatement();
+
+                    ArrayList<String> namearr = new ArrayList<>();
+                    boolean checkname = false;
+                    while(resultset.next()) {
+                        namearr.add(resultset.getString("player"));
+                    }
+
+                    if (namearr.contains(this.name)) {
+                        checkname = true;
+                    }
+
+                    if (checkname) {
+                        Statement statement2 = connection.createStatement();
+                        statement2.executeUpdate("UPDATE Scoreboard SET score = score + " + scoreOne + " WHERE player = '" + this.name + "'");
+                    }
+                    else {
+                        Statement statement3 = connection.createStatement();
+
+                        statement3.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scoreOne + ")");
+
+                    }
+
+
+                    //Datensatz einfügen
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+
+                System.out.println("You have won! Restart the application to look at your updated stats in the scoreboard.");
+                System.exit(0);
+            }
+
+            if (scoreTwo == 11 && scoreTwo > scoreOne) {
+                Connection connection = null;
+                try {
+                    connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
+
+                    Statement statement = connection.createStatement();
+                    statement.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scoreOne + ")");
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+
+                System.out.println("You have lost! Restart the application to look at your updated stats in the scoreboard.");
+                System.exit(0);
+            }
         }
     }
 
@@ -168,7 +235,6 @@ public class Game extends JPanel implements Runnable, KeyListener {
                 drawCenteredString(instructions[i], Game.GAME_WIDTH, Game.GAME_HEIGHT + (i * 45) - 150, g);
             }
         } else if (game) {
-
             g.drawString(scoreOneString, (Game.GAME_WIDTH / 4) - (scoreOneString.length() * 8 / 2),
                     Game.GAME_HEIGHT - 40);
             g.drawString(scoreTwoString, (Game.GAME_WIDTH / 4 * 3) - (scoreTwoString.length() * 8 / 2),
@@ -217,6 +283,7 @@ public class Game extends JPanel implements Runnable, KeyListener {
             if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
                 up = true;
             }
+
         } else if (twoPlayer) {
             if (key == KeyEvent.VK_D) {
                 right = true;
@@ -242,34 +309,25 @@ public class Game extends JPanel implements Runnable, KeyListener {
                 leftTwo = true;
             }
 
-            if (!upTwo)
+            // if (ball.isColliding(playerTwo) && upTwo)
+            //     playerTwo.ySpeed++;
+
+            //if (ball.isColliding(playerTwo) && downTwo)
+            //    playerTwo.ySpeed--;
+
+            //if (playerTwo.ySpeed == 0 && playerOne.ySpeed >= 1 || playerTwo.ySpeed == 0 && playerOne.ySpeed <= -1)
+            //    downTwo = true;
+
+            if (ball.isColliding(playerOne))
                 downTwo = true;
 
-            if (!downTwo)
-                upTwo = true;
-
-            if (playerTwo.ySpeed == 0 && ball.ySpeed >= 0 || ball.ySpeed <= -1)
-                upTwo = false;
-
-            if (playerTwo.ySpeed == 0 || !downTwo)
-                upTwo = true;
-
-            if (playerTwo.ySpeed == 0 || !upTwo)
+            if (ball.ySpeed < playerTwo.ySpeed) {
                 downTwo = true;
+            }
 
-            // if (!downTwo)
-            //     upTwo = true;
-//
-            // if (playerTwo.ySpeed == 0 && ball.ySpeed >= 0 || ball.ySpeed <= -1)
-            //     upTwo = false;
-//
-            // if (!upTwo) {
-            //     downTwo = true;
-            // }
-//
-            // if (playerTwo.ySpeed == 0 || !downTwo) {
-            //     upTwo = true;
-            // }
+            if (ball.ySpeed > playerTwo.ySpeed) {
+                upTwo = true;
+            }
         }
 
         if (key == KeyEvent.VK_SPACE) {
