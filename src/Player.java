@@ -9,7 +9,7 @@ public class Player extends Entity {
 
     public void update() {
 
-        if (this.id == ID.PLAYER_ONE) {
+        if (this.id == ID.PLAYER) {         // Ort und geschwindigkeit des Spielers aktualisiert
             if (this.x < 0) {
                 this.x = 0;
             }
@@ -27,7 +27,7 @@ public class Player extends Entity {
             this.y += this.ySpeed;
         }
 
-        if (this.id == ID.PLAYER_TWO) {
+        if (this.id == ID.BOT) {            // Ort und geschwindigkeit des Bots aktualisiert
 
             if (this.y < 0) {
                 this.y = 0;
@@ -43,7 +43,7 @@ public class Player extends Entity {
     }
 
     @Override
-    public void render(Graphics g) {
+    public void render(Graphics g) {        // rendert Spieler
         g.setColor(Color.WHITE);
         g.fillRect(this.x, this.y, this.WIDTH, this.HEIGHT);
     }

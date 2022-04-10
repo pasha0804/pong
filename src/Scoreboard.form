@@ -80,7 +80,9 @@
             <preferred-size width="150" height="50"/>
           </grid>
         </constraints>
-        <properties/>
+        <properties>
+          <font name="Roboto Light"/>
+        </properties>
       </component>
     </children>
   </grid>

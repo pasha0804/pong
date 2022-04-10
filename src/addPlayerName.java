@@ -1,64 +1,63 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
 public class addPlayerName extends JFrame {
-    private JPanel mainPanel;
-    private JLabel textLabel;
-    private JTextField textField1;
-    private JButton gameStartButton;
-    private JComboBox difficulty;
-    private JFrame frame;
+
+    private JPanel mainPanel;                                                                        //--------------------------------
+    private JLabel textLabel;                                                                        // Deklaration aller JFrame elemente
+    private JTextField textField1;                                                                   //--------------------------------
+    private JButton gameStartButton;                                                                 //--------------------------------
+    private final JFrame frame;                                                                      //--------------------------------
 
     addPlayerName(Dimension scale, Point location) {
 
         frame = new JFrame();
 
-        frame.setSize(scale);
-        frame.setLocation(location);
+        frame.setSize(scale);                                                                         // setzt Grösse des Fensters zur selben grösse wie vorheriges Fens
+        frame.setLocation(location);                                                                  // setzt Ort des Fensters zur selben grösse wie vorheriges Fenster
+
+        mainPanel.setBackground(Color.black);
 
         frame.setVisible(true);
         frame.add(mainPanel);
+        frame.setTitle("Pong - by Alperen Y. & Connor F. (Page: Add Player)");
 
-        textLabel.setVisible(true);
-        textField1.setVisible(true);
-        gameStartButton.setVisible(true);
-        textField1.setDocument(new LengthRestrictedDocument(3));
+        textLabel.setVisible(true);                                                                  //-------------------------------
+        textField1.setVisible(true);                                                                 // Macht Elemente sichtbar
+        gameStartButton.setVisible(true);                                                            //-------------------------------
+        textField1.setDocument(new EingeschraenkteLaenge(3));                                 // gibt textField1 ein Zeichenlimit
 
-        frame.setResizable(false);
-        frame.toFront();
-        frame.requestFocus();
-        frame.setAlwaysOnTop(true);
+        frame.setResizable(false);                                                                   //---------------------------------------
+        frame.toFront();                                                                             // schiebt das Fenster in den Vordergrund
+        frame.requestFocus();                                                                        //---------------------------------------
+        frame.setAlwaysOnTop(true);                                                                  //---------------------------------------
 
-        gameStartButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (textField1.getText().length() <= 2 && e.getSource() == gameStartButton) {
-                    gameStartButton.setEnabled(false);
-                    System.out.println("NAME MUST BE EXACTLY 3 CHARACTERS!!!");
-                    // frame.dispose();
-                }
-                else {
-                    gameStartButton.setEnabled(true);
-                }
+        ImageIcon image = new ImageIcon(getClass().getResource("images/icon.png"));              // erstellt Icon oben links am Fenster
+        frame.setIconImage(image.getImage());
 
-                if (e.getSource() == gameStartButton && textField1.getText().length() == 3) {
-                        gameStartButton.setEnabled(true);
+        gameStartButton.addActionListener(e -> {
+            if (textField1.getText().length() <= 2 && e.getSource() == gameStartButton) {         //--------------------------------------------------
+                gameStartButton.setEnabled(false);                                                // überprüft, ob der eingegebene Text genug lang ist
+                System.out.println("NAME MUST BE EXACTLY 3 CHARACTERS!!!");                       //-------------------------------------------------
+            }                                                                                     //-------------------------------------------------
+            else {
+                gameStartButton.setEnabled(true);
+            }
 
-                        String name = textField1.getText();
+            if (e.getSource() == gameStartButton && textField1.getText().length() == 3) {
+                gameStartButton.setEnabled(true);
 
+                String name = textField1.getText();                                           //setzt name zum eingegebenen Text
 
-                        frame.dispose();
-                        Window window = new Window("Pong", Game.GAME_WIDTH, Game.GAME_HEIGHT);
-                        Game game = new Game(name);
+                frame.dispose();                                                               //schliesst Fenster
+                Window window = new Window("Pong - by Alperen Y. & Connor F. (Main Game)", Game.GAME_WIDTH, Game.GAME_HEIGHT);    //startet Spiel
+                Game game = new Game(name);
 
-                        window.addGameInstance(game);
-                        window.addListener(game);
-                        game.start();
-                }
+                window.addGameInstance(game);
+                window.addListener(game);
+                game.start();
             }
         });
 
@@ -71,34 +70,9 @@ public class addPlayerName extends JFrame {
                 super.keyPressed(e);
                 char c = e.getKeyChar();
 
-                if(Character.isLetter(c) || Character.isISOControl(c)) {
-                    textField1.setEditable(true);
-                }
-                else {
-                    textField1.setEditable(false);
-                }
+                // prüft, ob der eingegebene Text nur Buchstaben enthält
+                textField1.setEditable(Character.isLetter(c) || Character.isISOControl(c));
             }
         });
-
-        // textField1.getDocument().addDocumentListener(new DocumentListener() {
-        //     public void changedUpdate(DocumentEvent e) {
-        //         changed();
-        //     }
-        //     public void removeUpdate(DocumentEvent e) {
-        //         changed();
-        //     }
-        //     public void insertUpdate(DocumentEvent e) {
-        //         changed();
-        //     }
-
-        //     public void changed() {
-        //         if (textLabel.getText().equals("")){
-        //             gameStartButton.setEnabled(false);
-        //         }
-        //         else {
-        //             gameStartButton.setEnabled(true);
-        //         }
-        //     }
-        // });
     }
 }

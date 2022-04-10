@@ -1,72 +1,64 @@
 import javax.swing.*;
-
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
-import java.util.ArrayList;
 
 public class Scoreboard implements ActionListener{
-    private JButton mainback;
-    DefaultListModel Score_Model = new DefaultListModel();
-    private JLabel title;
-    private JPanel panel;
-    private JList Scores;
-    private JWindow window;
+    private JButton mainback;                                                                      //--------------------------------
+    DefaultListModel<Object> Score_Model = new DefaultListModel<>();                               //Deklaration aller JFrame elemente
+    private JLabel title;                                                                          //--------------------------------
+    private JPanel panel;                                                                          //--------------------------------
+    private JList<Object> Scores;                                                                  //--------------------------------
+    private final JWindow window;                                                                  //--------------------------------
 
-    FontMetrics font;
 
     Scoreboard(Dimension scale, Point location){
-        window = new JWindow();
-        window.setVisible(true);
-        window.setSize(scale);
-        window.setLocation(location);
-        panel.setBackground(Color.black);
-        title.setForeground(Color.white);
-        Scores.setBackground(Color.black);
-        Scores.setForeground(Color.white);
 
-        window.toFront();
-        window.requestFocus();
-        window.setAlwaysOnTop(true);
+        window = new JWindow();                                                                     //erstellt JWindow
+        window.setVisible(true);                                                                    //
+        window.setSize(scale);                                                                      //setzt Grösse des Fensters zur selben grösse wie vorheriges Fenster
+        window.setLocation(location);                                                               //setzt Ort des Fensters zur selben grösse wie vorheriges Fenster
+        panel.setBackground(Color.black);                                                           //Hintergrundfarbe
+        title.setForeground(Color.white);                                                           //Vordergrundfarbe
+        Scores.setBackground(Color.black);                                                          //Hintergrundfarbe
+        Scores.setForeground(Color.white);                                                          //Vordergrundfarbe
 
-        /*title.setFont(new Font("Monaco", Font.PLAIN, 40));
-        font = title.getFontMetrics();
-        title.drawString("Start", (SCREEN_WIDTH / 2) - (font.stringWidth("Start") / 2), 100);*/
+        window.toFront();                                                                           //---------------------------------------
+        window.requestFocus();                                                                      //schiebt das Fenster in den Vordergrund
+        window.setAlwaysOnTop(true);                                                                //---------------------------------------
 
-        window.add(panel);
-        mainback.addActionListener(this);
-        content();
+        String obj = "Rank                     " + "Player                     " + "Score";         //---------------------
+        Score_Model.addElement(obj);                                                                //erste Zeile des JList
+
+
+        window.add(panel);                                                                          // fügt panel zumFenster hinzu
+        mainback.addActionListener(this);                                                          // Actionlistener des "Main Menu" Knopf
+        content();                                                                                  // führt content aus
     }
 
     public void content(){
         try {
-            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
+            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");        // MySQL Verbindung
             Statement statement = connection.createStatement();
-            ResultSet resultset = statement.executeQuery("SELECT * from scoreboard Order By Score DESC Limit 10");
+            String sql = "SELECT * from scoreboard Order By Score DESC Limit 10";
+            ResultSet resultset = statement.executeQuery(sql);                                                                        // MySQL statement
             int numb = 1;
-            while (resultset.next()) {
-                int scr = resultset.getInt("Score");
-                String nam = resultset.getString("player");
-                String comb = "" + numb + ". " + scr + " " + nam + "";
-                Score_Model.addElement(comb);
-                numb++;
+            while (resultset.next()) {                                                                                                // While Loop
+                int scr = resultset.getInt("Score");                                                                         // fügt jedes Score der Spieler in der Datenbank zur JList
+                String nam = resultset.getString("player");                                                                  // fügt Jeder Spielername in der Datenbank zur JList
+                String comb = "" + numb + ".                              " + nam + "                             " + scr + "";       // deklariert "comb"
+                Score_Model.addElement(comb);                                                                                         // fügt jeden Spieler und seine Punktzahl zur JList hinzu
+                numb++;                                                                                                               //
             }
             Scores.setModel(Score_Model);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        } catch (SQLException e) {                                                                                                    //---------------
+            e.printStackTrace();                                                                                                      // Exception catch
+        }                                                                                                                             //---------------
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        /* if (e.getSource() == mainback){
-            window.dispose();
-
-            Main.main(state.setstate(0));
-
-        } */
 
         if(e.getSource() == mainback) {
             window.dispose();

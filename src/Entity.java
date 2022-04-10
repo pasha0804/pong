@@ -5,11 +5,11 @@ public abstract class Entity {
     protected int y;
     protected final int WIDTH;
     protected final int HEIGHT;
-    protected int xSpeed;
-    protected int ySpeed;
+    protected double xSpeed;
+    protected double ySpeed;
     protected ID id;
 
-    public Entity(int x, int y, int width, int height, ID id) {
+    public Entity(int x, int y, int width, int height, ID id) {                       //definiert Koordinaten und Dimensionen
         this.x = x;
         this.y = y;
         this.WIDTH = width;

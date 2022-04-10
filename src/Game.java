@@ -1,58 +1,69 @@
+// imports
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.Serial;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import javax.swing.*;
 
-public class Game extends JPanel implements Runnable, KeyListener {
+public class Game extends JPanel implements Runnable, KeyListener { // vererbt JPanel, implementiert Runnable und Keylistener
+                                                                    // Runnable ist eine Schnittstelle, die von einer Klasse implementiert werden muss, deren Instanzen von einem Thread ausgeführt werden sollen
+                                                                    // Keylistener kann eingabe von der tastatur abrufen
 
-    private static final long serialVersionUID = 1L;
-    public static final int GAME_WIDTH = 1600;
-    public static final int GAME_HEIGHT = 900;
+    @Serial
+    private static final long serialVersionUID = 1L; // ermöglicht es, Objekte abzurufen/zu speichern
+    public static final int GAME_WIDTH = 1600; // breite des Spiels
+    public static final int GAME_HEIGHT = 900; // höhe des Spiels
 
-    private String[] instructions = { "'A' for One Player (Solo against ", "'S' for Two Player", "'D' for No Player",
-            "WASD for Player One Movement", "Arrow Keys for Player Two Movement", "SPACE to Start/Reset ball",
-            "ESC to quit", "******Only Two Player is working right now******"};
+    private final String[] instructions = { "Press now 'S' to start the game", // Tutorial des Spiels
+            "Press W to go up", "Press S to go down", "Press space to start/reset the ball",
+            "ESC to quit the game"};
 
-    private boolean menu = true;
-    private boolean game = false;
-    private boolean onePlayer = true, twoPlayer = false, noPlayer = false;
+    private boolean menu = true; // setzt "menu" zu true: Menu wird angezeigt am Anfang
+    private boolean game = false; // setzt "game" zu false: Spiel fängt noch nicht an; erst, wenn es richtig vom Menu aus gestartet wird
+    private boolean startGame = true; // startGame (allgemeiner Bool) wird zu true gesetzt
 
-    private Thread t;
-    private boolean running = false;
+    private Thread t; // timer (t.sleep, ...)
+    private boolean running = false; // setzt running auf false, wird für den Konstruktor run() benötigt
 
-    public static int scoreOne;
-    public static int scoreTwo;
-    public static String scoreOneString;
-    public static String scoreTwoString;
+    public static int scorePlayer; // setzt einen static int scorePlayer - score-anzeige vom spieler
+    public static int scoreBot; // setzt einen static int scoreBot - score-anzeige vom bot
+    public static String scorePlayerString = "Player One: 0"; // im spiel steht "Player (One oder Name): 0"
+    public static String scoreBotString = "Bot: 0"; // im spiel steht "Bot: 0"
 
-    private String name;
+    public String name; // spielname
 
-    protected Player playerOne;
-    protected Player playerTwo;
-    protected Ball ball;
-    protected static int ballSpeed;
-    public static boolean startDirection;
+    protected Player player; // Ruft player aus klasse Player hervor
+    protected Player bot; // Ruft bot aus klasse Player hervor
+    protected Ball ball; // Ruft ball aus klasse Ball hervor
+    public static boolean startDirection; // boolean für den Startpunkt
 
-    Map<Boolean, Boolean> cache = new ConcurrentHashMap<>();
+    //booleans, welche für reibungslose Bewegung benutzt werden
+    private boolean up = false;
+    private boolean down = false;
+    private boolean upBot = false;
+    private boolean downBot = false;
 
-    // BOOLEANS THAT WILL BE USED FOR SMOOTHER MOVEMENT
-    private boolean right = false, left = false, up = false, down = false, space = false;
-    private boolean rightTwo = false, leftTwo = false, upTwo = false, downTwo = false;
+    // sql verbindung connection, statement und resultset werden auf null gesetzt um später (z.B. zeile 55) eine verbindung zur datenbank zu erstellen
+    Connection connection = null;
+    Statement statement = null;
+    ResultSet resultSet = null;
 
-    public Game(String name) {
-        playerOne = new Player(0, 360, 15, 200, ID.PLAYER_ONE);
+    public Game(String name) { // konstruktor vom Game mit String name für spielname
+        try { // try/catch für verbindung mit mysql server
+            connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
+            statement = connection.createStatement();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        player = new Player(0, 360, 15, 200, ID.PLAYER); // ruft player aus klasse Player hervor und gibt denn ort und breite/höhe an
+        bot = new Player(GAME_WIDTH - 21, 360, 15, 200, ID.BOT); // ruft bot aus klasse Bot hervor und gibt denn ort und breite/höhe an
+        ball = new Ball(0, 0, 50, 50, ID.BALL); // ruft ball aus klasse Ball hervor und gibt denn ort und breite/höhe an
         this.name = name;
-        playerTwo = new Player(GAME_WIDTH - 21, 360, 15, 200, ID.PLAYER_TWO);
-        ball = new Ball(0, 0, 50, 50, ID.BALL);
     }
 
-    // INITIALIZES NEW THREAD AND STARTS IT (MAKES IT CALL RUN METHOD)
-    public void start() {
+    public void start() { //initialisiert neuer thread und startet diesen
         if (t == null) {
             t = new Thread(this);
         }
@@ -60,8 +71,7 @@ public class Game extends JPanel implements Runnable, KeyListener {
         running = true;
     }
 
-    // MAIN GAME LOOP (NEEDS REVISING)
-    public void run() {
+    public void run() { //Haupt-spiel loop
         while (running) {
             updateLogic();
             repaint();
@@ -74,103 +84,80 @@ public class Game extends JPanel implements Runnable, KeyListener {
         }
     }
 
-    //UPDATES ALL OBJECT POSITIONS AND USED TO DECIDE GAME STATE
-    public void updateLogic() {
+    public void updateLogic() { //aktualisiert alle object-positionen und wird benötigt um den "Game State" tu entscheiden
         if (menu) {
-            if (left) {
-                onePlayer = true;
-                menu = false;
-                game = true;
-            }
             if (down) {
-                onePlayer = false;
-                twoPlayer = true;
+                startGame = true;
                 menu = false;
                 game = true;
             }
-            if (right) {
-                onePlayer = false;
-                noPlayer = true;
-                menu = false;
-                game = true;
+        }
+
+        //Y-Richtung Spieler Bewegung
+        else if (game) {
+            if (down) {
+                player.ySpeed = 3;
+            } else if (up) {
+                player.ySpeed = -3;
+            } else {
+                player.ySpeed = 0;
             }
-        } else if (game) {
-            // X DIRECTION MOVEMENT PLAYER ONE
-            if (right)
-                playerOne.xSpeed = 3;
-            else if (left)
-                playerOne.xSpeed = -3;
-            else
-                playerOne.xSpeed = 0;
 
-            // Y DIRECTION MOVEMENT PLAYER ONE
-            if (down)
-                playerOne.ySpeed = 3;
-            else if (up)
-                playerOne.ySpeed = -3;
-            else
-                playerOne.ySpeed = 0;
+            if (downBot && !upBot) { //Y-Richtung Bot Bewegung
+                bot.ySpeed = 1;
+            } else if (upBot && !downBot) {
+                bot.ySpeed = -1;
+            } else {
+                bot.ySpeed = 0;
+            }
 
-            // X DIRECTION MOVEMENT PLAYER TWO
-            if (rightTwo)
-                playerTwo.xSpeed = 3;
-            else if (leftTwo)
-                playerTwo.xSpeed = -3;
-            else
-                playerTwo.xSpeed = 0;
-
-            // Y DIRECTION MOVEMENT PLAYER TWO
-            if (downTwo)
-                playerTwo.ySpeed = -1;
-            else if (upTwo)
-                playerTwo.ySpeed = 1;
-
-
-            // if (ball.isColliding(playerOne))
-            //     playerTwo.ySpeed = 1;
-            // if (ball.isColliding(playerTwo))
-            //     playerTwo.ySpeed = 1;
-
-            /* if (playerTwo.ySpeed + playerTwo.HEIGHT >= GAME_HEIGHT)
-                playerTwo.ySpeed = GAME_HEIGHT - playerTwo.HEIGHT; */
-
-            if (ball.isColliding(playerOne)) {
+            if (ball.isColliding(player)) { //Kollisionen des Balles gegen den Spieler
                 ball.x = 15;
                 ball.xSpeed--;
                 ball.xSpeed = -ball.xSpeed;
+                upBot = false;
+                downBot = true;
+                ball.bob = 1;
             }
-            if (ball.isColliding(playerTwo)) {
+
+            if (ball.isColliding(bot)) { //Kollisionen des Balles gegen den Bot
                 ball.x = GAME_WIDTH - 21 - ball.WIDTH;
                 ball.xSpeed++;
                 ball.xSpeed = -ball.xSpeed;
             }
 
-            // UPDATE OBJECT LOGIC
-            playerOne.update();
-            playerTwo.update();
+            if (ball.bob == 0) { // macht, dass bot nach oben geht wenn ball.y niedriger als 0 ist (siehe Ball.java zeile 49, 54)
+                upBot = true;
+                downBot = false;
+                ball.bob = 1;
+            }
+
+            if (bot.y + this.HEIGHT + 30 > Game.GAME_HEIGHT) { //setzt Obergrenze vom Bot fest
+                bot.y = Game.GAME_HEIGHT - this.HEIGHT - 30;
+                upBot = true;
+                downBot = false;
+            }
+
+            if (bot.y < 0) { // wenn bot.y kleiner als 0 ist wird bot.y 0 und upbot false und downbot true, also der bot bewegt sich nach oben
+                bot.y = 0;
+                upBot = false;
+                downBot = true;
+            }
+
+            player.update(); // objekt logik aktualisieren
+            bot.update();
             ball.update();
-            scoreOneString = "Player "  + this.name + ": " + scoreOne;
-            scoreTwoString = "Player Two: " + scoreTwo;
+            scorePlayerString = "Player " + this.name + ": " + scorePlayer;
+            scoreBotString = "Bot: " + scoreBot;
 
-            // cache.computeIfAbsent(scoreOne == 2, x -> {
-            //     System.exit(0);
-            //     return true;
-            // });
-
-            if (scoreOne == 11 && scoreOne > scoreTwo) {
-
-                Connection connection = null;
+            if (scorePlayer == 6 && scorePlayer > scoreBot) { // Win-Condition
                 try {
-                    connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
-                    //testen ob name schon in der Datenbank erhalten ist
-                    Statement statement1 = connection.createStatement();
-                    ResultSet resultset = statement1.executeQuery("SELECT player from scoreboard");
-                    Statement statement = connection.createStatement();
+                    resultSet = statement.executeQuery("SELECT player from scoreboard"); // testen ob name schon in der Datenbank erhalten ist
 
                     ArrayList<String> namearr = new ArrayList<>();
                     boolean checkname = false;
-                    while(resultset.next()) {
-                        namearr.add(resultset.getString("player"));
+                    while (resultSet.next()) {
+                        namearr.add(resultSet.getString("player"));
                     }
 
                     if (namearr.contains(this.name)) {
@@ -178,18 +165,12 @@ public class Game extends JPanel implements Runnable, KeyListener {
                     }
 
                     if (checkname) {
-                        Statement statement2 = connection.createStatement();
-                        statement2.executeUpdate("UPDATE Scoreboard SET score = score + " + scoreOne + " WHERE player = '" + this.name + "'");
-                    }
-                    else {
-                        Statement statement3 = connection.createStatement();
-
-                        statement3.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scoreOne + ")");
+                        statement.executeUpdate("UPDATE Scoreboard SET score = score + " + scorePlayer + " WHERE player = '" + this.name + "'"); // Datensatz überschreiben
+                    } else {
+                        statement.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scorePlayer + ")"); // Datensatz einfügen
 
                     }
 
-
-                    //Datensatz einfügen
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
@@ -198,17 +179,18 @@ public class Game extends JPanel implements Runnable, KeyListener {
                 System.exit(0);
             }
 
-            if (scoreTwo == 11 && scoreTwo > scoreOne) {
-                Connection connection = null;
-                try {
-                    connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pong", "root", "");
+            if (scoreBot == 6 && scoreBot > scorePlayer) { // Lose-Condition
 
-                    Statement statement = connection.createStatement();
-                    statement.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scoreOne + ")");
+                if (scorePlayer == 0) {
+                    System.out.println("You have lost! Restart the application to look at your updated stats in the scoreboard.");
+                    System.exit(0);
+
+                }
+                try {
+                    statement.executeUpdate("INSERT INTO Scoreboard VALUES(null, '" + name + "', " + scorePlayer + ")"); // Datensatz einfügen
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
-
                 System.out.println("You have lost! Restart the application to look at your updated stats in the scoreboard.");
                 System.exit(0);
             }
@@ -222,9 +204,8 @@ public class Game extends JPanel implements Runnable, KeyListener {
         g.drawString(s, x, y);
     }
 
-    // METHOD OF JPANEL TO BE USED TO SHOW OBJECTS
-    @Override
-    public void paintComponent(Graphics g) {
+    @Override // Die Annotation @Override teilt dem Java-Compiler mit, dass wir eine Methode der Oberklasse überschreiben wollen
+    public void paintComponent(Graphics g) { //Methode von JPanel, benutzt um objekte anzuzeigen
         super.paintComponent(g);
         g.setFont(new Font("Arial", Font.BOLD, 18));
         g.setColor(Color.BLACK);
@@ -232,23 +213,20 @@ public class Game extends JPanel implements Runnable, KeyListener {
         g.setColor(Color.WHITE);
         if (menu) {
             for (int i = 0; i < instructions.length; i++) {
-                drawCenteredString(instructions[i], Game.GAME_WIDTH, Game.GAME_HEIGHT + (i * 45) - 150, g);
+                drawCenteredString(instructions[i], Game.GAME_WIDTH, Game.GAME_HEIGHT + (i * 45) - 150, g);         //Anleitung wird ausgeschrieben
             }
         } else if (game) {
-            g.drawString(scoreOneString, (Game.GAME_WIDTH / 4) - (scoreOneString.length() * 8 / 2),
+            g.drawString(scorePlayerString, (Game.GAME_WIDTH / 4) - (scorePlayerString.length() * 8 / 2),
                     Game.GAME_HEIGHT - 40);
-            g.drawString(scoreTwoString, (Game.GAME_WIDTH / 4 * 3) - (scoreTwoString.length() * 8 / 2),
+            g.drawString(scoreBotString, (Game.GAME_WIDTH / 4 * 3) - (scoreBotString.length() * 8 / 2),
                     Game.GAME_HEIGHT - 40);
-            playerOne.render(g);
-            playerTwo.render(g);
+            player.render(g);
+            bot.render(g);
             ball.render(g);
         }
     }
 
-    public void waitForStart() {
-        while (!space) {
-
-        }
+    public void waitForStart() { // restartet das spiel, aber nur ball wird ihre location zurücksetzen, bot und spieler bleiben am gleichen platz/bewegen sich weiter
         if (startDirection) {
             ball.xSpeed = 1;
             ball.ySpeed = -1;
@@ -258,7 +236,7 @@ public class Game extends JPanel implements Runnable, KeyListener {
         }
     }
 
-    // KEYBOARD INPUT EVENTS TRIGGERED BY OS
+    //Keyboard inputs ausgelöst vom OS
     @Override
     public void keyPressed(KeyEvent e) {
         int key = e.getKeyCode();
@@ -267,104 +245,27 @@ public class Game extends JPanel implements Runnable, KeyListener {
             System.exit(0);
         }
 
-        if (onePlayer) {
-            if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                right = true;
-            }
-
-            if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                left = true;
-            }
-
-            if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                down = true;
-            }
-
-            if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
-                up = true;
-            }
-
-        } else if (twoPlayer) {
-            if (key == KeyEvent.VK_D) {
-                right = true;
-            }
-
-            if (key == KeyEvent.VK_A) {
-                left = true;
-            }
+        if (startGame) {
 
             if (key == KeyEvent.VK_S) {
                 down = true;
             }
-
             if (key == KeyEvent.VK_W) {
                 up = true;
-            }
-
-            if (key == KeyEvent.VK_RIGHT) {
-                rightTwo = true;
-            }
-
-            if (key == KeyEvent.VK_LEFT) {
-                leftTwo = true;
-            }
-
-            // if (ball.isColliding(playerTwo) && upTwo)
-            //     playerTwo.ySpeed++;
-
-            //if (ball.isColliding(playerTwo) && downTwo)
-            //    playerTwo.ySpeed--;
-
-            //if (playerTwo.ySpeed == 0 && playerOne.ySpeed >= 1 || playerTwo.ySpeed == 0 && playerOne.ySpeed <= -1)
-            //    downTwo = true;
-
-            if (ball.isColliding(playerOne))
-                downTwo = true;
-
-            if (ball.ySpeed < playerTwo.ySpeed) {
-                downTwo = true;
-            }
-
-            if (ball.ySpeed > playerTwo.ySpeed) {
-                upTwo = true;
             }
         }
 
         if (key == KeyEvent.VK_SPACE) {
-            space = true;
             ball.reset();
             waitForStart();
         }
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {
+    public void keyReleased(KeyEvent e) { // falls taste nicht mehr gedrückt wird
         int key = e.getKeyCode();
 
-        if (onePlayer) {
-            if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                right = false;
-            }
-
-            if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                left = false;
-            }
-
-            if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                down = false;
-            }
-
-            if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
-                up = false;
-            }
-        } else if (twoPlayer) {
-            if (key == KeyEvent.VK_D) {
-                right = false;
-            }
-
-            if (key == KeyEvent.VK_A) {
-                left = false;
-            }
+        if (startGame) {
 
             if (key == KeyEvent.VK_S) {
                 down = false;
@@ -373,33 +274,19 @@ public class Game extends JPanel implements Runnable, KeyListener {
             if (key == KeyEvent.VK_W) {
                 up = false;
             }
-
-            if (key == KeyEvent.VK_RIGHT) {
-                rightTwo = false;
-            }
-
-            if (key == KeyEvent.VK_LEFT) {
-                leftTwo = false;
-            }
-
-            // if (key == KeyEvent.VK_DOWN) {
-            //     downTwo = false;
-            // }
-            // if (key == KeyEvent.VK_UP) {
-            //     upTwo = false;
-            // }
         }
     }
 
-    // UNUSED METHOD REQUIRED BY KEYLISTENER INTERFACE
+    //unbenutzte Methode erfordert vom Keylistener Interface
     @Override
     public void keyTyped(KeyEvent e) {
     }
 
-    // STARTING POINT
-    public static void main(String[] args) {
-        new gui();
-        JFrame frame = new gui();
+    // Anfangspunkt
+    public static void main(String[] args) {                                //Start der Applikation
+        new gui();                                                          //Main menu Start
+        JFrame frame = new gui();                                           //Neuer frame im gui
+        frame.setTitle("Pong - by Alperen Y. & Connor F. (Page: Main Menu)");
         frame.setVisible(true);
         frame.setResizable(false);
         frame.setBackground(Color.black);
